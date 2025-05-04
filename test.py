@@ -8,7 +8,7 @@ Created on Sat May  3 14:08:50 2025
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy import pi, sin, cos, exp, sqrt, log10
-from numpy.fft import fft, fftshift, ifft
+from numpy.fft import fft, ifft
 
 # Bridge パターン
 # 実装部分：描画方法
@@ -93,7 +93,7 @@ class Noise(SignalType):
         return self.rms * np.random.randn(self.nCh, self.N)
 
 class ArraySignal(SignalType):
-    def __init__(self, pos, beam, c, fs, N):
+    def __init__(self, pos, c, fs, N):
         super().__init__()
         self.count = 0
         self.pos = pos
@@ -103,22 +103,25 @@ class ArraySignal(SignalType):
         self.fs = fs
         self.numSignal = 0
         self.N = N
-        self.beam = beam
     
     def add(self, sig, theta=0.0, phi=0.0):
         IMP = self._make_delay_filter(theta, phi)
         self.signals.append([sig, theta, phi, IMP])
         self.numSignal += 1
     
+    def draw(self, ax, plot_api: PlotAPI):
+        temp_sig = self.generate()
+        plot_api.draw_graph(ax, temp_sig[0,:], self.fs)
+    
+    
     def generate(self):
-        out = np.zeros([self.numSignal, self.N])
+        out = np.zeros([self.numSignal,self.nCh, self.N])
         for i in range(self.numSignal):
             signal = fft(self.signals[i][0].generate(self.count))
             delay_filter = self.signals[i][3]
-            out[i] = ifft(signal * delay_filter).real
+            out[i] = ifft(signal * delay_filter,n=self.N, axis=1).real
         
         out2 = out.sum(0)
-
         self.count += 1        
         return out2
     
@@ -178,14 +181,13 @@ if __name__ == '__main__':
     rms2 = NL(-25,fs)
     a2 = Noise(rms2, fs, N, nCh)
     
-    linearray = ArraySignal(pos, beam, c, fs, N)
+    linearray = ArraySignal(pos, c, fs, N)
     linearray.add(a1, 80, 0)
     linearray.add(a2)
-       
-    fig, (ax1) = plt.subplots(1,1)
     
-    #a1.draw(ax1, PlotAPI_TL())
-    linearray.draw(ax1, PlotAPI_FL())
-    #ax1.set_ylim([-10, 10])
+    fig, (ax1, ax2) = plt.subplots(1,2)
+    
+    linearray.draw(ax1, PlotAPI_TL())
+    linearray.draw(ax2, PlotAPI_FL())
     
     plt.show()
